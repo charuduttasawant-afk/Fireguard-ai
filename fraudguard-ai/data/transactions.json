@@ -1,0 +1,32 @@
+[
+  {
+    "transaction_id": "TXN1001",
+    "customer_id": "CUST001",
+    "amount": 2500,
+    "timestamp": "2026-10-03 10:30",
+    "merchant": "Amazon",
+    "location": "Pune",
+    "channel": "Mobile Banking",
+    "device_id": "DEV001"
+  },
+  {
+    "transaction_id": "TXN1002",
+    "customer_id": "CUST002",
+    "amount": 45000,
+    "timestamp": "2026-10-03 02:15",
+    "merchant": "Electronics Store",
+    "location": "Mumbai",
+    "channel": "Internet Banking",
+    "device_id": "DEV099"
+  },
+  {
+    "transaction_id": "TXN1003",
+    "customer_id": "CUST003",
+    "amount": 180000,
+    "timestamp": "2026-10-03 03:10",
+    "merchant": "Unknown Merchant",
+    "location": "Delhi",
+    "channel": "Internet Banking",
+    "device_id": "DEV999"
+  }
+]
