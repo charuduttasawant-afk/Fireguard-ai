@@ -1,0 +1,17 @@
+[
+  {
+    "device_id": "DEV001",
+    "customer_id": "CUST001",
+    "known_device": true
+  },
+  {
+    "device_id": "DEV099",
+    "customer_id": "CUST002",
+    "known_device": false
+  },
+  {
+    "device_id": "DEV999",
+    "customer_id": "CUST003",
+    "known_device": false
+  }
+]

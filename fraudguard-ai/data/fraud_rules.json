@@ -1,0 +1,32 @@
+[
+  {
+    "rule_id": "R001",
+    "rule_name": "New Device",
+    "condition": "device_not_known",
+    "risk_points": 20
+  },
+  {
+    "rule_id": "R002",
+    "rule_name": "Unusual Location",
+    "condition": "location_not_usual",
+    "risk_points": 15
+  },
+  {
+    "rule_id": "R003",
+    "rule_name": "Unusual Transaction Amount",
+    "condition": "amount_significantly_above_average",
+    "risk_points": 20
+  },
+  {
+    "rule_id": "R004",
+    "rule_name": "Unusual Time",
+    "condition": "transaction_outside_typical_hours",
+    "risk_points": 10
+  },
+  {
+    "rule_id": "R005",
+    "rule_name": "Unknown Merchant",
+    "condition": "merchant_not_known",
+    "risk_points": 15
+  }
+]

@@ -1,0 +1,47 @@
+[
+  {
+    "customer_id": "CUST001",
+    "name": "Amit Sharma",
+    "age": 32,
+    "account_age_days": 1250,
+    "transaction_count": 145,
+    "average_transaction": 8500,
+    "risk_profile": "Low",
+    "usual_location": "Pune",
+    "usual_channel": "Mobile Banking",
+    "usual_device": "DEV001",
+    "typical_transaction_start": "08:00",
+    "typical_transaction_end": "22:00",
+    "travel_history": []
+  },
+  {
+    "customer_id": "CUST002",
+    "name": "Priya Mehta",
+    "age": 28,
+    "account_age_days": 620,
+    "transaction_count": 78,
+    "average_transaction": 4200,
+    "risk_profile": "Medium",
+    "usual_location": "Mumbai",
+    "usual_channel": "Internet Banking",
+    "usual_device": "DEV002",
+    "typical_transaction_start": "08:00",
+    "typical_transaction_end": "22:00",
+    "travel_history": []
+  },
+  {
+    "customer_id": "CUST003",
+    "name": "Rahul Patil",
+    "age": 41,
+    "account_age_days": 2100,
+    "transaction_count": 320,
+    "average_transaction": 12000,
+    "risk_profile": "Low",
+    "usual_location": "Delhi",
+    "usual_channel": "Internet Banking",
+    "usual_device": "DEV003",
+    "typical_transaction_start": "08:00",
+    "typical_transaction_end": "22:00",
+    "travel_history": []
+  }
+]

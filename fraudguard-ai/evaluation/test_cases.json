@@ -1,0 +1,26 @@
+[
+  {
+    "case_id": "CASE001",
+    "transaction_id": "TXN1001",
+    "type": "NORMAL",
+    "expected_risk": "LOW",
+    "expected_human_review": false,
+    "expected_escalation": false
+  },
+  {
+    "case_id": "CASE002",
+    "transaction_id": "TXN1002",
+    "type": "AMBIGUOUS",
+    "expected_risk": "MEDIUM",
+    "expected_human_review": true,
+    "expected_escalation": false
+  },
+  {
+    "case_id": "CASE003",
+    "transaction_id": "TXN1003",
+    "type": "HIGH_RISK",
+    "expected_risk": "HIGH",
+    "expected_human_review": true,
+    "expected_escalation": true
+  }
+]
