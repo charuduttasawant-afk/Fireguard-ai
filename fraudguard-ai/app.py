@@ -17,8 +17,7 @@ st.set_page_config(
 # CONFIGURATION
 # ======================================================
 
-BACKEND_URL = "http://localhost:8000"
-# N8N_WEBHOOK_URL = "http://localhost:5678/webhook-test/YOUR_WEBHOOK_PATH"
+FASTAPI_URL = "https://fireguard-ai-production.up.railway.app/investigate"
 
 
 # ======================================================
@@ -70,11 +69,6 @@ st.markdown("""
     text-align: center;
 }
 
-.section-header {
-    font-size: 24px;
-    font-weight: 600;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -96,8 +90,8 @@ st.markdown(
 )
 
 st.write(
-    "FraudGuard AI investigates transactions using multiple specialized "
-    "AI agents and provides a risk-based recommendation. "
+    "FraudGuard AI investigates transactions using multiple "
+    "specialized AI agents and provides a risk-based recommendation. "
     "Humans remain responsible for consequential decisions."
 )
 
@@ -105,33 +99,41 @@ st.divider()
 
 
 # ======================================================
-# BACKEND HEALTH CHECK
+# SIDEBAR / SYSTEM STATUS
 # ======================================================
 
 with st.sidebar:
 
     st.header("⚙️ System")
 
-    try:
-
-        response = requests.post(
-    f"{BACKEND_URL}/investigate",
-    json={
-        "transaction_id": transaction_id
-    },
-    timeout=30
-)
-
-        if response.status_code == 200:
-            st.success("🟢 FastAPI Backend Online")
-        else:
-            st.warning("🟡 Backend Responding")
-
-    except Exception:
-        st.error("🔴 FastAPI Backend Offline")
+    st.success("🟢 Cloud Backend Connected")
 
     st.caption(
-        f"Backend: {BACKEND_URL}"
+        f"Backend: {FASTAPI_URL}"
+    )
+
+    st.divider()
+
+    st.markdown("### Architecture")
+
+    st.caption(
+        "Streamlit → Railway FastAPI → AI Agents"
+    )
+
+    st.divider()
+
+    st.markdown("### Demo Transactions")
+
+    st.caption(
+        "TXN1001 → LOW"
+    )
+
+    st.caption(
+        "TXN1002 → MEDIUM"
+    )
+
+    st.caption(
+        "TXN1003 → HIGH"
     )
 
 
@@ -151,7 +153,6 @@ st.caption(
     "Available demo transactions: TXN1001, TXN1002, TXN1003"
 )
 
-
 investigate = st.button(
     "🔎 Investigate Transaction",
     type="primary",
@@ -167,7 +168,9 @@ if investigate:
 
     if not transaction_id.strip():
 
-        st.error("Please enter a Transaction ID.")
+        st.error(
+            "Please enter a Transaction ID."
+        )
 
         st.stop()
 
@@ -180,22 +183,41 @@ if investigate:
         try:
 
             response = requests.post(
-                f"{BACKEND_URL}/investigate",
+                FASTAPI_URL,
                 json={
                     "transaction_id": transaction_id
                 },
-                timeout=30
+                timeout=120
             )
 
-            response.raise_for_status()
+            # --------------------------------------------------
+            # HTTP ERROR
+            # --------------------------------------------------
+
+            if response.status_code != 200:
+
+                st.error(
+                    f"🔴 Backend returned HTTP "
+                    f"{response.status_code}: "
+                    f"{response.text}"
+                )
+
+                st.stop()
+
+            # --------------------------------------------------
+            # PARSE JSON
+            # --------------------------------------------------
 
             result = response.json()
 
         except requests.exceptions.ConnectionError:
 
             st.error(
-                "Unable to connect to the FastAPI backend. "
-                "Make sure Uvicorn is running on port 8000."
+                "🔴 Cannot connect to the Railway FastAPI backend."
+            )
+
+            st.caption(
+                f"Backend URL: {FASTAPI_URL}"
             )
 
             st.stop()
@@ -203,15 +225,16 @@ if investigate:
         except requests.exceptions.Timeout:
 
             st.error(
-                "The investigation timed out."
+                "⏱️ The FastAPI investigation timed out."
             )
 
             st.stop()
 
-        except requests.exceptions.HTTPError as error:
+        except ValueError:
 
             st.error(
-                f"Backend returned an error: {error}"
+                "🔴 FastAPI returned a response that "
+                "was not valid JSON."
             )
 
             st.stop()
@@ -219,61 +242,130 @@ if investigate:
         except Exception as error:
 
             st.error(
-                f"Unexpected error: {error}"
+                f"🔴 Unexpected backend error: {error}"
             )
 
             st.stop()
 
 
     # ==================================================
-    # EXTRACT RESULTS
+    # EXTRACT FASTAPI RESPONSE
     # ==================================================
 
-    transaction_result = result.get(
+    transaction_data = result.get(
         "transaction",
         {}
     )
 
-    customer_result = result.get(
+    customer_data = result.get(
         "customer",
         {}
     )
 
-    device_result = result.get(
+    device_data = result.get(
         "device",
         {}
     )
 
-    risk_result = result.get(
+    risk_data = result.get(
         "risk",
         {}
     )
 
-    recommendation_result = result.get(
+    recommendation_data = result.get(
         "recommendation",
         {}
     )
 
 
     # ==================================================
-    # CHECK INVESTIGATION STATUS
+    # EXTRACT RISK INFORMATION
     # ==================================================
 
-    if transaction_result.get("status") != "SUCCESS":
+    status = risk_data.get(
+        "status",
+        "SUCCESS"
+    )
+
+    risk_level = str(
+        risk_data.get(
+            "risk_level",
+            "UNKNOWN"
+        )
+    ).upper()
+
+    risk_score = risk_data.get(
+        "risk_score",
+        0
+    )
+
+    human_review = bool(
+        risk_data.get(
+            "human_review_required",
+            False
+        )
+    )
+
+    escalation = bool(
+        risk_data.get(
+            "escalation_required",
+            False
+        )
+    )
+
+
+    # ==================================================
+    # EXTRACT RECOMMENDATION
+    # ==================================================
+
+    recommendation = str(
+        recommendation_data.get(
+            "recommendation",
+            "UNKNOWN"
+        )
+    ).upper()
+
+    message = recommendation_data.get(
+        "rationale",
+        "Transaction assessed successfully."
+    )
+
+
+    # ==================================================
+    # CHECK STATUS
+    # ==================================================
+
+    if status not in (
+        "SUCCESS",
+        "COMPLETED"
+    ):
 
         st.error(
-            transaction_result.get(
-                "message",
-                "Transaction investigation failed."
-            )
+            message
         )
 
         st.stop()
 
 
+    # ==================================================
+    # SUCCESS
+    # ==================================================
+
     st.success(
-        f"Investigation completed for {transaction_id}"
+        f"🟢 Investigation completed for "
+        f"{transaction_id}"
     )
+
+
+    # ==================================================
+    # RAW FASTAPI RESPONSE
+    # ==================================================
+
+    with st.expander(
+        "🔎 View Complete API Response"
+    ):
+
+        st.json(result)
 
 
     # ==================================================
@@ -282,40 +374,96 @@ if investigate:
 
     st.divider()
 
-    st.header("💳 Transaction Details")
-
-    transaction_data = transaction_result.get(
-        "transaction",
-        {}
+    st.header(
+        "💳 Transaction Details"
     )
 
     col1, col2, col3, col4 = st.columns(4)
 
+
     with col1:
+
         st.metric(
             "Transaction",
             transaction_id
         )
 
+
     with col2:
+
         st.metric(
-            "Amount",
-            f"₹{transaction_data.get('amount', 0):,}"
+            "Risk Score",
+            risk_score
         )
 
+
     with col3:
+
+        st.metric(
+            "Risk Level",
+            risk_level
+        )
+
+
+    with col4:
+
+        st.metric(
+            "Decision",
+            recommendation
+        )
+
+
+    # ==================================================
+    # TRANSACTION INFORMATION
+    # ==================================================
+
+    transaction_details = transaction_data.get(
+        "transaction",
+        {}
+    )
+
+    st.subheader(
+        "Transaction Information"
+    )
+
+    tx_col1, tx_col2, tx_col3, tx_col4 = st.columns(4)
+
+
+    with tx_col1:
+
+        st.metric(
+            "Amount",
+            f"₹{transaction_details.get('amount', 'N/A')}"
+        )
+
+
+    with tx_col2:
+
+        st.metric(
+            "Merchant",
+            transaction_details.get(
+                "merchant",
+                "N/A"
+            )
+        )
+
+
+    with tx_col3:
+
         st.metric(
             "Location",
-            transaction_data.get(
+            transaction_details.get(
                 "location",
                 "N/A"
             )
         )
 
-    with col4:
+
+    with tx_col4:
+
         st.metric(
             "Channel",
-            transaction_data.get(
+            transaction_details.get(
                 "channel",
                 "N/A"
             )
@@ -328,41 +476,20 @@ if investigate:
 
     st.divider()
 
-    st.header("🚨 Risk Assessment")
-
-    risk_level = risk_result.get(
-        "risk_level",
-        "UNKNOWN"
+    st.header(
+        "🚨 Risk Assessment"
     )
-
-    risk_score = risk_result.get(
-        "risk_score",
-        0
-    )
-
-    human_review = risk_result.get(
-        "human_review_required",
-        False
-    )
-
-    escalation = risk_result.get(
-        "escalation_required",
-        False
-    )
-
-    recommendation = recommendation_result.get(
-        "recommendation",
-        "HUMAN_REVIEW"
-    )
-
 
     col1, col2, col3, col4 = st.columns(4)
 
+
     with col1:
+
         st.metric(
             "Risk Score",
             risk_score
         )
+
 
     with col2:
 
@@ -371,12 +498,14 @@ if investigate:
             risk_level
         )
 
+
     with col3:
 
         st.metric(
             "Human Review",
             "YES" if human_review else "NO"
         )
+
 
     with col4:
 
@@ -386,7 +515,9 @@ if investigate:
         )
 
 
-    # Risk banner
+    # ==================================================
+    # RISK BANNER
+    # ==================================================
 
     if risk_level == "LOW":
 
@@ -417,10 +548,13 @@ if investigate:
 
 
     # ==================================================
-    # RECOMMENDATION
+    # AI RECOMMENDATION
     # ==================================================
 
-    st.subheader("🎯 AI Recommendation")
+    st.subheader(
+        "🎯 AI Recommendation"
+    )
+
 
     if recommendation == "PROCEED":
 
@@ -434,201 +568,22 @@ if investigate:
             "⚠️ HUMAN REVIEW REQUIRED"
         )
 
+    elif recommendation == "ESCALATE":
+
+        st.error(
+            "🚨 ESCALATE"
+        )
+
     else:
 
         st.error(
             f"🚨 {recommendation}"
         )
 
+
     st.info(
-        recommendation_result.get(
-            "rationale",
-            "No rationale available."
-        )
+        message
     )
-
-
-    # ==================================================
-    # RISK FINDINGS
-    # ==================================================
-
-    st.divider()
-
-    st.header("⚠️ Risk Findings")
-
-    findings = risk_result.get(
-        "findings",
-        []
-    )
-
-    if findings:
-
-        for finding in findings:
-
-            rule = finding.get(
-                "rule",
-                "N/A"
-            )
-
-            signal = finding.get(
-                "signal",
-                "Unknown"
-            )
-
-            points = finding.get(
-                "risk_points",
-                0
-            )
-
-            description = finding.get(
-                "description",
-                ""
-            )
-
-            st.write(
-                f"**{rule} — {signal}** "
-                f"**(+{points} points)**"
-            )
-
-            st.caption(description)
-
-            st.divider()
-
-    else:
-
-        st.success(
-            "No significant risk signals detected."
-        )
-
-
-    # ==================================================
-    # AGENT EVIDENCE
-    # ==================================================
-
-    st.header("🤖 Agent Evidence")
-
-
-    # ----------------------------------------------
-    # Transaction Agent
-    # ----------------------------------------------
-
-    with st.expander(
-        "1️⃣ Transaction Analysis Agent",
-        expanded=True
-    ):
-
-        st.write(
-            f"Assessment: "
-            f"**{transaction_result.get('assessment', 'N/A')}**"
-        )
-
-        for finding in transaction_result.get(
-            "findings",
-            []
-        ):
-
-            st.write(
-                f"**{finding.get('signal', 'N/A')}** — "
-                f"{finding.get('description', '')}"
-            )
-
-
-    # ----------------------------------------------
-    # Customer Agent
-    # ----------------------------------------------
-
-    with st.expander(
-        "2️⃣ Customer Behaviour Agent"
-    ):
-
-        st.write(
-            f"Assessment: "
-            f"**{customer_result.get('assessment', 'N/A')}**"
-        )
-
-        for finding in customer_result.get(
-            "findings",
-            []
-        ):
-
-            st.write(
-                f"**{finding.get('signal', 'N/A')}** — "
-                f"{finding.get('description', '')}"
-            )
-
-
-    # ----------------------------------------------
-    # Device Agent
-    # ----------------------------------------------
-
-    with st.expander(
-        "3️⃣ Device / Channel Agent"
-    ):
-
-        st.write(
-            f"Assessment: "
-            f"**{device_result.get('assessment', 'N/A')}**"
-        )
-
-        for finding in device_result.get(
-            "findings",
-            []
-        ):
-
-            st.write(
-                f"**{finding.get('signal', 'N/A')}** — "
-                f"{finding.get('description', '')}"
-            )
-
-
-    # ----------------------------------------------
-    # Risk Agent
-    # ----------------------------------------------
-
-    with st.expander(
-        "4️⃣ Risk / Policy Agent"
-    ):
-
-        st.write(
-            f"Risk Score: "
-            f"**{risk_score}**"
-        )
-
-        st.write(
-            f"Risk Level: "
-            f"**{risk_level}**"
-        )
-
-        for finding in risk_result.get(
-            "findings",
-            []
-        ):
-
-            st.write(
-                f"**{finding.get('signal', 'N/A')}** — "
-                f"{finding.get('description', '')}"
-            )
-
-
-    # ----------------------------------------------
-    # Recommendation Agent
-    # ----------------------------------------------
-
-    with st.expander(
-        "5️⃣ Recommendation Agent"
-    ):
-
-        st.write(
-            f"Recommendation: "
-            f"**{recommendation}**"
-        )
-
-        st.write(
-            recommendation_result.get(
-                "rationale",
-                "No rationale available."
-            )
-        )
 
 
     # ==================================================
@@ -637,9 +592,12 @@ if investigate:
 
     st.divider()
 
-    st.header("🛡️ Governance & Human Oversight")
+    st.header(
+        "🛡️ Governance & Human Oversight"
+    )
 
     gov_col1, gov_col2 = st.columns(2)
+
 
     with gov_col1:
 
@@ -673,25 +631,473 @@ if investigate:
 
 
     # ==================================================
+    # AGENT EVIDENCE
+    # ==================================================
+
+    st.divider()
+
+    st.header(
+        "🤖 Agent Evidence"
+    )
+
+    st.caption(
+        "FraudGuard AI uses specialized agents for "
+        "transaction analysis, customer behaviour, "
+        "device/channel analysis, risk assessment, "
+        "and recommendation."
+    )
+
+
+    # ==================================================
+    # 1. TRANSACTION AGENT
+    # ==================================================
+
+    with st.expander(
+        "1️⃣ Transaction Analysis Agent",
+        expanded=True
+    ):
+
+        st.write(
+            f"**Assessment:** "
+            f"{transaction_data.get('assessment', 'N/A')}"
+        )
+
+        st.write(
+            f"**Agent Status:** "
+            f"{transaction_data.get('status', 'N/A')}"
+        )
+
+        st.write(
+            f"**Transaction ID:** "
+            f"{transaction_data.get('transaction_id', transaction_id)}"
+        )
+
+        st.write(
+            "**Findings:**"
+        )
+
+        transaction_findings = transaction_data.get(
+            "findings",
+            []
+        )
+
+        if transaction_findings:
+
+            for finding in transaction_findings:
+
+                severity = finding.get(
+                    "severity",
+                    "INFO"
+                )
+
+                signal = finding.get(
+                    "signal",
+                    "Signal"
+                )
+
+                description = finding.get(
+                    "description",
+                    ""
+                )
+
+                st.write(
+                    f"• **{signal}** "
+                    f"({severity}) — "
+                    f"{description}"
+                )
+
+        else:
+
+            st.info(
+                "No transaction findings."
+            )
+
+
+    # ==================================================
+    # 2. CUSTOMER AGENT
+    # ==================================================
+
+    with st.expander(
+        "2️⃣ Customer Behaviour Agent"
+    ):
+
+        st.write(
+            f"**Customer ID:** "
+            f"{customer_data.get('customer_id', 'N/A')}"
+        )
+
+        st.write(
+            f"**Assessment:** "
+            f"{customer_data.get('assessment', 'N/A')}"
+        )
+
+        profile = customer_data.get(
+            "customer_profile",
+            {}
+        )
+
+        profile_col1, profile_col2 = st.columns(2)
+
+
+        with profile_col1:
+
+            st.write(
+                f"**Usual Location:** "
+                f"{profile.get('usual_location', 'N/A')}"
+            )
+
+            st.write(
+                f"**Usual Channel:** "
+                f"{profile.get('usual_channel', 'N/A')}"
+            )
+
+            st.write(
+                f"**Usual Device:** "
+                f"{profile.get('usual_device', 'N/A')}"
+            )
+
+
+        with profile_col2:
+
+            st.write(
+                f"**Average Transaction:** "
+                f"₹{profile.get('average_transaction', 'N/A')}"
+            )
+
+            travel_history = profile.get(
+                "travel_history",
+                []
+            )
+
+            st.write(
+                f"**Travel History:** "
+                f"{len(travel_history)} record(s)"
+            )
+
+
+        st.write(
+            "**Behavioural Findings:**"
+        )
+
+        customer_findings = customer_data.get(
+            "findings",
+            []
+        )
+
+        if customer_findings:
+
+            for finding in customer_findings:
+
+                severity = finding.get(
+                    "severity",
+                    "INFO"
+                )
+
+                signal = finding.get(
+                    "signal",
+                    "Signal"
+                )
+
+                description = finding.get(
+                    "description",
+                    ""
+                )
+
+                st.write(
+                    f"• **{signal}** "
+                    f"({severity}) — "
+                    f"{description}"
+                )
+
+        else:
+
+            st.info(
+                "No customer findings."
+            )
+
+
+    # ==================================================
+    # 3. DEVICE AGENT
+    # ==================================================
+
+    with st.expander(
+        "3️⃣ Device / Channel Agent"
+    ):
+
+        st.write(
+            f"**Customer ID:** "
+            f"{device_data.get('customer_id', 'N/A')}"
+        )
+
+        st.write(
+            f"**Assessment:** "
+            f"{device_data.get('assessment', 'N/A')}"
+        )
+
+        device_profile = device_data.get(
+            "device_profile",
+            {}
+        )
+
+        device_col1, device_col2 = st.columns(2)
+
+
+        with device_col1:
+
+            st.write(
+                f"**Device ID:** "
+                f"{device_profile.get('device_id', 'N/A')}"
+            )
+
+            st.write(
+                f"**Known Device:** "
+                f"{'YES' if device_profile.get('known_device') else 'NO'}"
+            )
+
+
+        with device_col2:
+
+            st.write(
+                f"**Device Customer:** "
+                f"{device_profile.get('device_customer_id', 'N/A')}"
+            )
+
+            st.write(
+                f"**Transaction Channel:** "
+                f"{device_profile.get('transaction_channel', 'N/A')}"
+            )
+
+            st.write(
+                f"**Usual Channel:** "
+                f"{device_profile.get('usual_channel', 'N/A')}"
+            )
+
+
+        st.write(
+            "**Device Findings:**"
+        )
+
+        device_findings = device_data.get(
+            "findings",
+            []
+        )
+
+        if device_findings:
+
+            for finding in device_findings:
+
+                severity = finding.get(
+                    "severity",
+                    "INFO"
+                )
+
+                signal = finding.get(
+                    "signal",
+                    "Signal"
+                )
+
+                description = finding.get(
+                    "description",
+                    ""
+                )
+
+                st.write(
+                    f"• **{signal}** "
+                    f"({severity}) — "
+                    f"{description}"
+                )
+
+        else:
+
+            st.info(
+                "No device findings."
+            )
+
+
+    # ==================================================
+    # 4. RISK AGENT
+    # ==================================================
+
+    with st.expander(
+        "4️⃣ Risk / Policy Agent"
+    ):
+
+        risk_col1, risk_col2 = st.columns(2)
+
+
+        with risk_col1:
+
+            st.write(
+                f"**Risk Score:** "
+                f"**{risk_score}**"
+            )
+
+            st.write(
+                f"**Risk Level:** "
+                f"**{risk_level}**"
+            )
+
+
+        with risk_col2:
+
+            st.write(
+                f"**Human Review:** "
+                f"**{'YES' if human_review else 'NO'}**"
+            )
+
+            st.write(
+                f"**Escalation:** "
+                f"**{'YES' if escalation else 'NO'}**"
+            )
+
+
+        risk_findings = risk_data.get(
+            "findings",
+            []
+        )
+
+        st.write(
+            "**Risk Findings:**"
+        )
+
+        if risk_findings:
+
+            for finding in risk_findings:
+
+                if isinstance(finding, dict):
+
+                    rule = finding.get(
+                        "rule",
+                        finding.get(
+                            "signal",
+                            "Risk Rule"
+                        )
+                    )
+
+                    description = finding.get(
+                        "description",
+                        ""
+                    )
+
+                    points = finding.get(
+                        "points",
+                        finding.get(
+                            "score",
+                            ""
+                        )
+                    )
+
+                    if points != "":
+
+                        st.write(
+                            f"• **{rule}** "
+                            f"(+{points}) — "
+                            f"{description}"
+                        )
+
+                    else:
+
+                        st.write(
+                            f"• **{rule}** — "
+                            f"{description}"
+                        )
+
+                else:
+
+                    st.write(
+                        f"• {finding}"
+                    )
+
+        else:
+
+            st.success(
+                "No additional risk findings."
+            )
+
+
+    # ==================================================
+    # 5. RECOMMENDATION AGENT
+    # ==================================================
+
+    with st.expander(
+        "5️⃣ Recommendation Agent"
+    ):
+
+        st.write(
+            f"**Recommendation:** "
+            f"**{recommendation}**"
+        )
+
+        st.write(
+            f"**Risk Level:** "
+            f"{recommendation_data.get('risk_level', risk_level)}"
+        )
+
+        st.write(
+            f"**Risk Score:** "
+            f"{recommendation_data.get('risk_score', risk_score)}"
+        )
+
+        st.write(
+            f"**Human Review Required:** "
+            f"{'YES' if recommendation_data.get('human_review_required', human_review) else 'NO'}"
+        )
+
+        st.write(
+            f"**Escalation Required:** "
+            f"{'YES' if recommendation_data.get('escalation_required', escalation) else 'NO'}"
+        )
+
+        st.write(
+            "**Rationale:**"
+        )
+
+        st.info(
+            recommendation_data.get(
+                "rationale",
+                message
+            )
+        )
+
+
+    # ==================================================
     # AUDIT SUMMARY
     # ==================================================
 
     st.divider()
 
-    st.header("📋 Investigation Audit Summary")
+    st.header(
+        "📋 Investigation Audit Summary"
+    )
 
     audit_data = {
-        "Transaction ID": transaction_id,
-        "Risk Score": risk_score,
-        "Risk Level": risk_level,
-        "Recommendation": recommendation,
+
+        "Transaction ID":
+            transaction_id,
+
+        "Risk Score":
+            risk_score,
+
+        "Risk Level":
+            risk_level,
+
+        "Recommendation":
+            recommendation,
+
         "Human Review":
-            "Required" if human_review
+            "Required"
+            if human_review
             else "Not Required",
+
         "Escalation":
-            "Required" if escalation
-            else "Not Required"
+            "Required"
+            if escalation
+            else "Not Required",
+
+        "Status":
+            status
     }
+
 
     for key, value in audit_data.items():
 
